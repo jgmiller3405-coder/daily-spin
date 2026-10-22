@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Daily Spin</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Daily Spin">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f0f14">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <!-- TODAY -->
+    <section id="tab-today" class="tab active">
+      <h1>Today's Spin</h1>
+      <p class="hint">Albums you don't own yet, matched to your filters and the taste in your library.</p>
+      <div class="filters">
+        <label>Genre <select id="f-genre"></select></label>
+        <label>Vocals
+          <select id="f-vocals">
+            <option value="">Any</option><option>Male</option><option>Female</option><option>Mixed</option><option>Instrumental</option>
+          </select>
+        </label>
+        <label>Tempo / vibe
+          <select id="f-vibe">
+            <option value="">Any</option><option>Chill</option><option>Mellow</option><option>Groovy</option><option>Upbeat</option><option>Energetic</option><option>Dark</option>
+          </select>
+        </label>
+        <label>Format
+          <select id="f-format">
+            <option value="">Any</option><option>Studio</option><option>Live</option><option>Acoustic</option>
+          </select>
+        </label>
+        <label>Artists
+          <select id="f-source">
+            <option value="both">Mix of both</option><option value="new">New to me</option><option value="mine">From my library</option>
+          </select>
+        </label>
+        <label>Era
+          <select id="f-era"><option value="">Any</option><option value="2">Last 2 years</option><option value="10">Last 10 years</option></select>
+        </label>
+        <label>How many
+          <select id="f-count"><option>1</option><option selected>3</option><option>5</option></select>
+        </label>
+      </div>
+      <button id="generate" class="primary">Generate</button>
+      <p id="gen-status" class="hint"></p>
+      <div id="picks"></div>
+    </section>
+
+    <!-- NEW MUSIC -->
+    <section id="tab-new" class="tab">
+      <h1>New Music</h1>
+      <div class="filters">
+        <label>Genre <select id="n-genre"></select></label>
+        <label>Released in the last
+          <select id="n-days"><option value="14">2 weeks</option><option value="30" selected>30 days</option><option value="60">60 days</option><option value="90">90 days</option></select>
+        </label>
+      </div>
+      <button id="n-load" class="primary">Find new releases</button>
+      <p class="hint">Tags come from the community, so results are rough. Albums by artists in your library are marked ★.</p>
+      <div id="n-results"></div>
+    </section>
+
+    <!-- LIBRARY -->
+    <section id="tab-lib" class="tab">
+      <h1>Library <span id="lib-count" class="muted"></span></h1>
+      <details open>
+        <summary>Import albums</summary>
+        <p class="hint">Paste one per line as <code>Artist - Album</code>, or load a CSV/TXT/JSON file. A CSV can have columns: artist, album, genre, vocals, vibe, format.</p>
+        <textarea id="import-text" rows="5" placeholder="Radiohead - OK Computer&#10;Norah Jones - Come Away With Me"></textarea>
+        <div class="row">
+          <button id="import-btn" class="primary">Add pasted</button>
+          <label class="btn">Load file<input type="file" id="import-file" accept=".csv,.txt,.json,text/*" hidden></label>
+        </div>
+        <div class="row">
+          <button id="enrich-btn">Auto-fill genre &amp; artwork</button>
+          <button id="export-btn">Export backup</button>
+        </div>
+        <p id="status" class="hint"></p>
+      </details>
+      <input id="search" type="search" placeholder="Search library">
+      <div id="lib-list"></div>
+      <button id="clear-btn" class="danger">Clear library</button>
+    </section>
+  </main>
+
+  <dialog id="editor">
+    <form method="dialog" id="edit-form">
+      <h2 id="e-title"></h2>
+      <label>Genre <input id="e-genre"></label>
+      <label>Vocals <select id="e-vocals"><option value="">Unknown</option><option>Male</option><option>Female</option><option>Mixed</option><option>Instrumental</option></select></label>
+      <label>Tempo / vibe <select id="e-vibe"><option value="">Unknown</option><option>Chill</option><option>Mellow</option><option>Groovy</option><option>Upbeat</option><option>Energetic</option><option>Dark</option></select></label>
+      <label>Format <select id="e-format"><option>Studio</option><option>Live</option><option>Acoustic</option></select></label>
+      <div class="row">
+        <button value="save" class="primary">Save</button>
+        <button value="delete" class="danger">Delete</button>
+        <button value="cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <nav>
+    <button data-tab="today" class="active"><span>🎲</span>Today</button>
+    <button data-tab="new"><span>✨</span>New</button>
+    <button data-tab="lib"><span>💿</span>Library</button>
+  </nav>
+  <script src="app.js"></script>
+</body>
+</html>
