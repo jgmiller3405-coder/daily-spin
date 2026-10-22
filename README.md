@@ -10,8 +10,8 @@ Open the link above in **Safari**, tap Share, then **Add to Home Screen**.
 
 ## Using it
 
-- **Library**: import the albums you own, either pasted as `Artist - Album` lines or from a CSV/TXT/JSON file. A CSV can have the columns `artist, album, genre, vocals, vibe, format`. "Auto-fill genre & artwork" looks up genre and cover art on iTunes. Tap Edit on an album to set its vocals, vibe and format.
-- **Today**: pick genre, vocals, tempo/vibe, format and era, and choose whether to hear from new artists, artists in your library, or both. It suggests albums you don't own, favouring artists whose tags overlap your library's genres.
+- **Library**: import the albums you own, either pasted as `Artist - Album` lines or from a CSV/TXT/JSON file. A CSV can have the columns `artist, album, genre, vocals, vibe, format`. "Auto-fill genre, vibe & artwork" looks up genre and cover art on iTunes, then sets each album's vibe (and sometimes vocals) from the MusicBrainz tags of its artist. It only fills blanks, so your own edits are kept. Tap Edit on an album to set its vocals, vibe and format.
+- **Today**: pick genre, vocals, tempo/vibe, format and era, and choose whether to hear from new artists, artists in your library, or both. It suggests albums you don't own, favouring artists whose tags overlap your library's genres and, when you pick a vibe, the artists you own in that vibe. The vibe drop-down shows how many of your albums carry each vibe.
 - **New**: recent album releases for a genre.
 
 Your library is stored in your browser only. Use "Export backup" to save a copy.

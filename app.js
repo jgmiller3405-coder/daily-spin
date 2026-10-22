@@ -127,7 +127,18 @@ function renderLibrary() {
     : `<p class="hint">${library.length ? 'No matches.' : 'Your library is empty. Import albums above to get started.'}</p>`;
 }
 
-function renderAll() { renderLibrary(); }
+// Show how many albums in your library carry each vibe, so the filter reflects your collection.
+function renderVibeCounts() {
+  for (const o of $('f-vibe').options) {
+    if (!o.value) continue;
+    o.dataset.v ||= o.value;
+    o.value = o.dataset.v;
+    const n = library.filter(a => a.vibe === o.value).length;
+    o.textContent = n ? `${o.value} (${n})` : o.value;
+  }
+}
+
+function renderAll() { renderLibrary(); renderVibeCounts(); }
 
 // ---------- MusicBrainz ----------
 let lastMB = Promise.resolve();
@@ -214,6 +225,7 @@ async function newCandidates(f, genre, taste, rnd, exclude) {
     if (!tiers.some(t => t.join() === k.join())) tiers.push(k);
   }
   const full = tiers[0];
+  const learned = learnedTags(f.vibe);
   const pool = new Map();
   for (const [i, keys] of tiers.entries()) {
     const query = [`tag:"${genre}"`, ...keys.map(k => orGroup(parts[k]))].join(' AND ');
@@ -222,9 +234,10 @@ async function newCandidates(f, genre, taste, rnd, exclude) {
       if (exclude.has(a.name.toLowerCase()) || pool.has(a.id)) continue;
       const tags = (a.tags || []).map(t => t.name);
       const tasteHits = tags.filter(t => taste[t]).length;
+      const vibeHits = tags.filter(t => learned[t]).length; // overlap with artists you own in this vibe
       pool.set(a.id, {
         id: a.id, name: a.name, loose: keys.length < full.length,
-        score: (tiers.length - i) * 2 + Math.min(tasteHits, 4) + rnd() * 2.5,
+        score: (tiers.length - i) * 2 + Math.min(tasteHits, 4) + Math.min(vibeHits, 4) * 1.5 + rnd() * 2.5,
       });
     }
     if (pool.size >= 15) break;
@@ -232,13 +245,51 @@ async function newCandidates(f, genre, taste, rnd, exclude) {
   return [...pool.values()].sort((a, b) => b.score - a.score);
 }
 
-async function mbidFor(name) {
+// Looks an artist up once and caches the MusicBrainz id plus their community tags.
+async function artistInfo(name) {
   const cache = readJSON(MBID_KEY, {});
-  if (cache[name]) return cache[name];
+  if (cache[name]?.id) return cache[name];
   const res = (await mb('artist', { query: `artist:"${name.replace(/"/g, '')}"`, limit: 5 })).artists || [];
   const hit = res.find(a => a.name.toLowerCase() === name.toLowerCase());
-  if (hit) { cache[name] = hit.id; writeJSON(MBID_KEY, cache); }
-  return hit?.id || null;
+  if (!hit) return null;
+  const info = { id: hit.id, tags: (hit.tags || []).slice(0, 25).map(t => [t.name, t.count]) };
+  cache[name] = info;
+  writeJSON(MBID_KEY, cache);
+  return info;
+}
+const mbidFor = async name => (await artistInfo(name))?.id || null;
+
+// Vibe and vocals read off the tags MusicBrainz holds for an artist you own.
+const VIBE_CLUES = {
+  Chill: ['chill', 'chillout', 'relaxing', 'ambient', 'downtempo', 'lounge', 'lo-fi'],
+  Mellow: ['mellow', 'calm', 'soft rock', 'folk', 'singer-songwriter', 'acoustic', 'easy listening'],
+  Groovy: ['groovy', 'groove', 'funk', 'soul', 'disco', 'r&b'],
+  Upbeat: ['upbeat', 'happy', 'feel good', 'pop', 'dance', 'party', 'ska'],
+  Energetic: ['energetic', 'high energy', 'aggressive', 'punk', 'hard rock', 'metal', 'hardcore'],
+  Dark: ['dark', 'gloomy', 'atmospheric', 'gothic', 'doom', 'darkwave', 'industrial', 'post-punk'],
+};
+function classifyTags(tags) {
+  const weight = name => { const t = tags.find(([n]) => n === name); return t ? Math.max(t[1], 0) + 1 : 0; };
+  let best = '', top = 0;
+  for (const [vibe, clues] of Object.entries(VIBE_CLUES)) {
+    const s = clues.reduce((sum, c) => sum + weight(c), 0);
+    if (s > top) { top = s; best = vibe; }
+  }
+  const vocals = ['Male', 'Female'].find(v => VOCAL_TAGS[v].some(t => tags.some(([n]) => n === t)))
+    || (tags.some(([n]) => n === 'instrumental') ? 'Instrumental' : '');
+  return { vibe: best, vocals };
+}
+
+// Tags typical of the artists you own for a given vibe, used to rank new artists.
+function learnedTags(vibe) {
+  const cache = readJSON(MBID_KEY, {});
+  const w = {};
+  if (!vibe) return w;
+  for (const a of library) {
+    if (a.vibe !== vibe) continue;
+    for (const [t] of cache[a.artist]?.tags || []) w[t] = (w[t] || 0) + 1;
+  }
+  return w;
 }
 
 async function albumFor(mbid, f, rnd, seen, owned) {
@@ -403,8 +454,27 @@ $('enrich-btn').addEventListener('click', async () => {
     if (done % 10 === 0) { save(); renderAll(); }
     await sleep(350); // iTunes throttles rapid-fire requests
   }
+  save(); renderAll();
+  if (done < todo.length) { enriching = false; return; }
+
+  // Read vibe and vocals from each artist's tags. Only blanks are filled, so your own edits stay.
+  const artists = [...new Set(library.filter(a => !a.vibe || !a.vocals).map(a => a.artist))];
+  let tagged = 0;
+  try {
+    for (const [i, name] of artists.entries()) {
+      setStatus(`Reading vibe for artist ${i + 1} of ${artists.length}…`);
+      const info = await artistInfo(name);
+      if (!info) continue;
+      const { vibe, vocals } = classifyTags(info.tags);
+      for (const a of library.filter(x => x.artist === name)) {
+        if (!a.vibe && vibe) { a.vibe = vibe; tagged++; }
+        if (!a.vocals && vocals) a.vocals = vocals;
+      }
+      if (i % 5 === 4) { save(); renderAll(); }
+    }
+    setStatus(`Done. Matched ${hit} of ${todo.length} for genre/artwork; set vibe on ${tagged} album(s).`);
+  } catch { setStatus('Vibe lookup stopped (network). Run it again to continue where it left off.'); }
   save(); renderAll(); enriching = false;
-  if (done === todo.length) setStatus(`Done. Matched ${hit} of ${todo.length}.`);
 });
 
 // ---------- editor ----------
