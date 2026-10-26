@@ -333,6 +333,11 @@ async function generate() {
   const ownedFor = name => ownedByArtist.get(norm(name)) || new Set();
   const genre = f.genre ? genreTags(f.genre)[0]
     : Object.keys(taste).length ? weightedPick(taste, rnd) : genreTags(NEW_GENRES[Math.floor(rnd() * NEW_GENRES.length)])[0];
+  // With the vibe filter on Any, lean on the vibes your library already has.
+  const vibeCounts = {};
+  for (const a of library) if (a.vibe) vibeCounts[a.vibe] = (vibeCounts[a.vibe] || 0) + 1;
+  const vibeAuto = !f.vibe && Object.keys(vibeCounts).length > 0;
+  const vibe = f.vibe || (vibeAuto ? weightedPick(vibeCounts, rnd) : '');
 
   out.className = n === 1 ? 'big' : '';
   out.innerHTML = '';
@@ -341,10 +346,12 @@ async function generate() {
   const picks = [];
 
   const gather = async (list, want, kind) => {
-    while (picks.length < want && (list.pos || 0) < list.length && (list.tries || 0) < want * 4 + 3) {
+    list.pos ??= 0;
+    list.tries ??= 0;
+    while (picks.length < want && list.pos < list.length && list.tries < want * 4 + 3) {
       if (run !== runId) return;
-      const c = list[list.pos++ || 0];
-      list.tries = (list.tries || 0) + 1;
+      const c = list[list.pos++];
+      list.tries++;
       status.textContent = `Looking through ${kind === 'mine' ? 'artists you like' : genre + ' artists'}… (${picks.length}/${n})`;
       const mbid = kind === 'mine' ? await mbidFor(c.name) : c.id;
       if (!mbid) continue;
@@ -374,7 +381,7 @@ async function generate() {
     if (wantMine) await gather(mine, wantMine, 'mine');
     if (picks.length < n && f.source !== 'mine') {
       status.textContent = `Searching ${genre} artists you haven't heard…`;
-      const fresh = await newCandidates(f, genre, taste, rnd, new Set(library.map(a => a.artist.toLowerCase())));
+      const fresh = await newCandidates({ ...f, vibe }, genre, taste, rnd, new Set(library.map(a => a.artist.toLowerCase())));
       await gather(fresh, n, 'new');
     }
     if (picks.length < n && f.source !== 'new') await gather(mine, n, 'mine');
@@ -388,7 +395,7 @@ async function generate() {
   $('generate').disabled = false;
   const why = f.genre ? genre : `${genre} (from your library)`;
   status.textContent = picks.length
-    ? `${picks.length} pick(s) · genre: ${why}`
+    ? `${picks.length} pick(s) · genre: ${why}${vibeAuto ? ` · vibe: ${vibe} (from your library)` : ''}`
     : f.source === 'mine'
       ? 'Nothing found from your library. Run "Auto-fill genre" in the Library tab, or loosen the filters.'
       : 'Nothing matched. Try loosening vibe, vocals, format or era.';
